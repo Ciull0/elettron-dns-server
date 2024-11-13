@@ -14,6 +14,7 @@ import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
 import { resolveHtmlPath } from './util';
+import DnsServer from './dnsServer';
 
 class AppUpdater {
   constructor() {
@@ -128,7 +129,9 @@ app
   .whenReady()
   .then(() => {
     createWindow();
+    const dnsServerInstance = DnsServer.instance;
     app.on('activate', () => {
+      dnsServerInstance.start();
       // On macOS it's common to re-create a window in the app when the
       // dock icon is clicked and there are no other windows open.
       if (mainWindow === null) createWindow();
