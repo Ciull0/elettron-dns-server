@@ -129,7 +129,7 @@ app
   .whenReady()
   .then(() => {
     createWindow();
-    const dnsServerInstance = DnsServer.instance;
+    const dnsServerInstance = new DnsServer();
     app.on('activate', () => {
       dnsServerInstance.start();
       // On macOS it's common to re-create a window in the app when the

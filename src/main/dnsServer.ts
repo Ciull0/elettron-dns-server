@@ -4,19 +4,10 @@ import { ipcMain } from 'electron';
 
 export default class DnsServer {
   static #instance: DnsServer;
-  configuration: Object;
-  process: ChildProcess;
+  cachedRequests: Array;
 
   private constructor() {
     this.start();
-  }
-
-  public static get instance(): DnsServer {
-    if (!DnsServer.#instance) {
-      DnsServer.#instance = new DnsServer();
-    }
-
-    return DnsServer.#instance;
   }
 
   public async start() {
@@ -26,9 +17,16 @@ export default class DnsServer {
       await sf.listen(9191);
       console.log(`Proxy listening on http://localhost:9191`);
 
+      ipcMain.on('requests', async (event, arg) => {
+        const msgTemplate = (args: any) => this.cachedRequests;
+        event.reply('requests', msgTemplate(arg));
+        this.cachedRequests = [];
+      });
+
       // Log http requests
       sf.onRequest.use(async ({ req, res }, next) => {
         console.log(`http request: ${req.url}`);
+        this.cachedRequests = this.cachedRequests.concat([req]);
         ipcMain.emit('request:new', req);
         // Note the common middleware pattern, use `next()`
         // to pass the request to the next handler.
