@@ -1,12 +1,12 @@
 import { Straightforward, middleware } from 'straightforward';
-import { ipcMain } from 'electron';
-
+import { BrowserWindow, ipcMain } from 'electron';
 
 export default class DnsServer {
   static #instance: DnsServer;
-  cachedRequests: Array;
+  mainWindow: BrowserWindow;
 
-  private constructor() {
+  private constructor(mainWindow: BrowserWindow) {
+    this.mainWindow = mainWindow;
     this.start();
   }
 
@@ -16,38 +16,32 @@ export default class DnsServer {
       const sf = new Straightforward();
       await sf.listen(9191);
       console.log(`Proxy listening on http://localhost:9191`);
-
-      ipcMain.on('requests', async (event, arg) => {
-        const msgTemplate = (args: any) => this.cachedRequests;
-        event.reply('requests', msgTemplate(arg));
-        this.cachedRequests = [];
-      });
-
       // Log http requests
-      sf.onRequest.use(async ({ req, res }, next) => {
-        console.log(`http request: ${req.url}`);
-        this.cachedRequests = this.cachedRequests.concat([req]);
-        ipcMain.emit('request:new', req);
-        // Note the common middleware pattern, use `next()`
-        // to pass the request to the next handler.
-        return next();
-      });
 
       // Log connect (https) requests
       sf.onConnect.use(async ({ req }, next) => {
-        console.log(`connect request: ${req.url}`);
-        ipcMain.emit('request:new', req);
+        const formattedHeaders = {};
+        for (let i = 0; i < req.rawHeaders.length; i = i + 2) {
+          formattedHeaders[req.rawHeaders[i]] = req.rawHeaders[i + 1];
+        }
+        this.mainWindow.webContents.send('request:new', {
+          method: req.method,
+          statusCode: req.statusCode,
+          url: req.url,
+          headers: formattedHeaders,
+          host: req.locals.urlParts.host,
+        });
         return next();
       });
 
       // Use built-in middleware to mock responses for all http requests
       sf.onRequest.use(middleware.echo);
+
+      this.mainWindow.webContents.on('newRedirect', (...args) => {
+        console.log('data', args);
+      });
     } catch (error) {
       console.log('error', error);
     }
-  }
-
-  public setConfiguration(configuration: any = {}) {
-    this.configuration = configuration;
   }
 }

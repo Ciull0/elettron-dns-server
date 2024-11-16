@@ -1,61 +1,86 @@
 import { MemoryRouter as Router, Routes, Route } from 'react-router-dom';
-import icon from '../../assets/icon.svg';
 import './App.css';
 import { useState } from 'react';
-import { PrimeReactProvider, PrimeReactContext } from 'primereact/api';
+import { PrimeReactProvider } from 'primereact/api';
 import { DataTable } from 'primereact/datatable';
+import { Splitter, SplitterPanel } from 'primereact/splitter';
 import { Column } from 'primereact/column';
 import 'primereact/resources/themes/lara-light-cyan/theme.css';
+import { InputText } from 'primereact/inputtext';
+import { Button } from 'primereact/button';
 
 function Hello() {
-  const [requests, setRequests] = useState([
-    {
-      host: 'localhost',
-      url: 'prova',
-      request: { headers: 'this should be key pair', body: 'dsf' },
-    },
-    {
-      host: 'localhost',
-      url: 'prova',
-      request: { headers: 'this should be key pair', body: 'dsf' },
-    },
-    {
-      host: 'localhost',
-      url: 'prova',
-      request: { headers: 'this should be key pair', body: 'dsf' },
-    },
-    {
-      host: 'localhost',
-      url: 'prova',
-      request: { headers: 'this should be key pair', body: 'dsf' },
-    },
-  ]);
+  const [requests, setRequests] = useState([]);
+  const [localUrl, setLocalUrl] = useState('');
+  const [remoteUrl, setRemoteUrl] = useState('');
+  const [activeRedirects, setActiveRedirects] = useState([]);
 
   const columns = [
     { field: 'host', header: 'Host' },
     { field: 'url', header: 'Url' },
-    { field: 'request.body', header: 'Requst body' },
-    { field: 'request.headers', header: 'Request headers' },
+    { field: 'method', header: 'Method' },
+    { field: 'headers.User-Agent', header: 'User Agent' },
+    { field: 'headers.Proxy-Connection', header: 'Proxy connection' },
   ];
 
-  setInterval(() => {
-    window.electron.ipcRenderer.sendMessage('requests', []);
-  }, 300);
-
-  window.electron.ipcRenderer.on('requests', (...args) => {
-    console.log('argd requests', args);
-  });
+  function addRedirect() {
+    window.electron.ipcRenderer.sendMessage('newRedirect', {
+      local: localUrl,
+      remote: remoteUrl,
+    });
+    setActiveRedirects(
+      activeRedirects.concat([
+        {
+          local: localUrl,
+          remote: remoteUrl,
+        },
+      ]),
+    );
+    console.log(activeRedirects);
+  }
 
   window.electron.ipcRenderer.on('request:new', (arg: Object) => {
-    console.log('sssss', arg);
     setRequests(requests.concat([arg]));
   });
+
   return (
-    <DataTable value={requests} tableStyle={{ minWidth: '50rem' }}>
-      {columns.map((col, i) => (
-        <Column key={col.field} field={col.field} header={col.header} />
-      ))}
-    </DataTable>
+    <Splitter style={{ gap: '24px', width: '100%' }}>
+      <SplitterPanel size={25} style={{ flexFlow: 'column', gap: '16px' }}>
+        <InputText
+          onChange={(e) => {
+            setLocalUrl(e.target.value);
+          }}
+          placeholder="Local Url"
+        />
+        <InputText
+          onChange={(e) => {
+            setRemoteUrl(e.target.value);
+          }}
+          placeholder="Remote Url"
+        />
+        <Button
+          onClick={() => {
+            addRedirect();
+          }}
+        >
+          Aggiungi Redirect
+        </Button>
+        <Button
+          onClick={() => {
+            setRequests([]);
+          }}
+        >
+          Cancella Richieste
+        </Button>
+      </SplitterPanel>
+      <SplitterPanel size={75}>
+        <DataTable value={requests} tableStyle={{ minWidth: '50rem' }}>
+          {columns.map((col, i) => (
+            <Column key={col.field} field={col.field} header={col.header} />
+          ))}
+        </DataTable>
+      </SplitterPanel>
+    </Splitter>
   );
 }
 
